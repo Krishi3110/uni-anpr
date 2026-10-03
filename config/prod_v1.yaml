@@ -1,0 +1,17 @@
+version: "1.0"
+pipeline:
+  detector:
+    model_path: "runs/detect/models/plate_detector/weights/best.pt"
+    device: "gpu"
+    confidence_threshold: 0.5
+  crop:
+    padding_px: 4
+  ocr:
+    engine: "onnxruntime"
+    device: "cpu"
+    lang: "en"
+    use_doc_orientation_classify: false
+    use_doc_unwarping: false
+    use_textline_orientation: false
+    regex_validation: "^[A-Z]{2}\\d{1,2}[A-Z]{0,3}\\d{4}$"
+    confidence_threshold: 0.90
