@@ -1,48 +1,93 @@
-# ANPR Prototype Pipeline
+# ANPR Production Pipeline
 
-This project is a prototype Automatic Number Plate Recognition (ANPR) pipeline, using YOLO for plate detection and PaddleOCR for text recognition.
+This repository contains the production-ready Automatic Number Plate Recognition (ANPR) pipeline, utilizing YOLOv8n for plate localization and PaddleOCR 3.7 with ONNX Runtime for sub-second, highly-accurate text recognition. 
 
-## Requirements
-- Windows OS
-- Python 3.8+
-- PyTorch (CUDA recommended)
-- Ultralytics (YOLO)
-- PaddleOCR
+It exposes a FastAPI backend integrated with PostgreSQL (or a mock fallback) to instantly categorize vehicles for gate security.
 
-## Setup Instructions (Windows CMD)
+---
 
-1. **Create and activate a virtual environment:**
+## Architecture Overview
+- **Detector**: YOLOv8n (`models/plate_detector/best.pt`) targeting `license_plate` classes. **Uses NVIDIA GPU if available**.
+- **OCR Engine**: PaddleOCR 3.7.0 running the complete Text Detection + Recognition pipeline. Accelerated using **ONNX Runtime on CPU**.
+- **Normalization**: Enforces strict Indian license plate regex logic (`^[A-Z]{2}\d{1,2}[A-Z]{0,3}\d{4}$`).
+- **Safety Gate**: Rejects any plate where `YOLO_confidence * OCR_confidence < 0.90`, defaulting to `MANUAL_VERIFICATION`.
+
+---
+
+## 🛠️ Setup Instructions (Windows CMD)
+
+**CRITICAL PREREQUISITE**: You **must** use **Python 3.12**. Python 3.14 breaks compatibility with the current PaddlePaddle 3.2.0 binaries. 
+
+1. **Clone the repository:**
    ```cmd
-   python -m venv venv
-   venv\Scripts\activate
+   git clone <YOUR_REPOSITORY_URL>
+   cd anpr
    ```
 
-2. **Install dependencies:**
+2. **Verify Python Version:**
+   ```cmd
+   python --version
+   ```
+   *Ensure the output is 3.12.x.*
+
+3. **Create and activate a virtual environment:**
+   ```cmd
+   python -m venv .venv
+   .venv\Scripts\activate
+   ```
+
+4. **Install all locked dependencies:**
    ```cmd
    pip install -r requirements.txt
    ```
-   *(Note: For GPU acceleration, you may need to install the CUDA version of PyTorch and PaddlePaddle manually according to your CUDA version.)*
+   *(Note: The environment handles CPU acceleration seamlessly via ONNX Runtime.)*
 
-3. **Run Environment Diagnostic:**
+5. **Set up Environment Variables:**
    ```cmd
-   python diagnostic.py
+   copy .env.example .env
+   ```
+   *By default, `.env` enables `USE_MOCK_DB=true` so you can test immediately without providing real PostgreSQL credentials.*
+
+6. **Start the API Server:**
+   ```cmd
+   python -m uvicorn src.api:app --host 0.0.0.0 --port 8000
    ```
 
-4. **Prepare Dataset:**
-   This script attempts to download the Indian number plates dataset from Hugging Face.
+7. **Access Swagger UI:**
+   Open [http://localhost:8000/docs](http://localhost:8000/docs) in your browser.
+
+8. **Run the Automated Integration Test:**
+   Open a new CMD window (leave the API running) and execute:
    ```cmd
-   python scripts\prepare_dataset.py
+   .venv\Scripts\activate
+   python test_api.py
+   ```
+   *This will run 7 edge-case scenarios and output a PASS/FAIL summary.*
+
+9. **Manual Vehicle-Image Test (cURL):**
+   ```cmd
+   curl -X POST "http://127.0.0.1:8000/api/anpr/scan" ^
+        -H "accept: application/json" ^
+        -H "Content-Type: multipart/form-data" ^
+        -F "image=@path_to_your_vehicle_image.jpg"
    ```
 
-5. **Run Smoke Test (10 images):**
-   ```cmd
-   python scripts\benchmark.py --smoke-test
-   ```
+---
 
-6. **Run Full Benchmark (~3000 images):**
-   ```cmd
-   python scripts\benchmark.py
-   ```
+## 📋 Team Testing Checklist
 
-## Output
-Results are saved in `outputs/` folder, including a JSON summary, a CSV of all predictions, and a CSV of failures.
+Please execute this checklist locally to confirm your hardware setup perfectly replicates the pipeline:
+
+- [ ] **Device Specs:** Note your CPU & GPU model. (YOLO will auto-select NVIDIA GPU if CUDA is available, otherwise CPU. OCR always utilizes CPU ONNX).
+- [ ] **Python Version:** Verified Python 3.12.
+- [ ] **Startup Success:** `uvicorn src.api:app` bound to port 8000 successfully without crash.
+- [ ] **Clear Plate Test:** Test API passes (e.g., `STAFF` returned for known `DL` plates).
+- [ ] **Unknown Plate Test:** Test API passes (e.g., `UNKNOWN` returned for an unrecognized plate prefix).
+- [ ] **Low-Confidence / No-Plate Test:** Test API passes (returns `MANUAL_VERIFICATION`).
+- [ ] **Observed Latency:** Ensure API JSON outputs `"latency_s"` well under `1.0s` (after the first warm-up request).
+- [ ] **Issues:** Log any pipeline setup errors in the project issue tracker.
+
+---
+
+## Note on Datasets
+The `datasets/` directory containing proprietary images is **excluded** from Git for security and bandwidth reasons. This repository strictly tracks the inference code, weights, configuration, and API deployment layer.

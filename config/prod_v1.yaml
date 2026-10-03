@@ -1,7 +1,7 @@
 version: "1.0"
 pipeline:
   detector:
-    model_path: "runs/detect/models/plate_detector/weights/best.pt"
+    model_path: "models/plate_detector/best.pt"
     device: "gpu"
     confidence_threshold: 0.5
   crop:

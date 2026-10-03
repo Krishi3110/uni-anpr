@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+logs/
+outputs/
+runs/
+datasets/
+.env
+*.pyc
+*.pt
+!models/plate_detector/best.pt
+.paddlex/
+garbled.jpg
+blur.jpg
+no_plate.jpg
