@@ -1,0 +1,12 @@
+torch==2.6.0+cu124
+torchvision
+paddlepaddle==3.2.0
+paddleocr==3.7.0
+ultralytics
+opencv-python
+pandas
+matplotlib
+datasets
+huggingface_hub
+Pillow
+tqdm
